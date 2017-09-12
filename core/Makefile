@@ -417,6 +417,12 @@ INSTALLED_RAMDISK_TARGET := $(BUILT_RAMDISK_TARGET)
 $(INSTALLED_RAMDISK_TARGET): $(MKBOOTFS) $(INTERNAL_RAMDISK_FILES) | $(MINIGZIP)
 	$(call pretty,"Target ram disk: $@")
 	$(hide) $(MKBOOTFS) $(TARGET_ROOT_OUT) | $(MINIGZIP) > $@
+ifneq ($(TARGET_MKIMAGE),)
+	$(call pretty,"Appending MTK header to ramdisk")
+	$(hide) $(TARGET_MKIMAGE) $@ ROOTFS > $(PRODUCT_OUT)/ramdisk_tmp.img
+	$(hide) mv $@ $(PRODUCT_OUT)/ramdisk_without_header.img
+	$(hide) mv $(PRODUCT_OUT)/ramdisk_tmp.img $@
+endif
 
 .PHONY: ramdisk-nodeps
 ramdisk-nodeps: $(MKBOOTFS) | $(MINIGZIP)
@@ -811,6 +817,11 @@ $(recovery_uncompressed_ramdisk): $(MINIGZIP) \
 	$(TARGET_RECOVERY_ROOT_TIMESTAMP)
 	@echo -e ${CL_CYN}"----- Making uncompressed recovery ramdisk ------"${CL_RST}
 	$(MKBOOTFS) $(TARGET_RECOVERY_ROOT_OUT) > $@
+ifneq ($(TARGET_MKIMAGE),)
+	$(call pretty,"Appending MTK header to ramdisk")
+	$(hide) mv $@ $(recovery_ramdisk).tmp
+	$(hide) $(TARGET_MKIMAGE) $(recovery_ramdisk).tmp RECOVERY > $@
+endif
 
 $(recovery_ramdisk): $(MKBOOTFS) \
 	$(recovery_uncompressed_ramdisk)
@@ -1326,7 +1337,11 @@ endif
 ifdef BOARD_KERNEL_PAGESIZE
 	$(hide) echo "$(BOARD_KERNEL_PAGESIZE)" > $(zip_root)/RECOVERY/pagesize
 endif
-
+ifdef TARGET_USE_BUILT_BOOTIMAGE
+	@# Copy boot.img to bootable_images
+	$(hide) mkdir -p $(zip_root)/BOOTABLE_IMAGES
+	$(hide) $(ACP) $(INSTALLED_BOOTIMAGE_TARGET) $(zip_root)/BOOTABLE_IMAGES
+endif
 	@# Components of the boot image
 	$(hide) mkdir -p $(zip_root)/BOOT
 	$(hide) $(call package_files-copy-root, \
